@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+   <head>
+     <title> Neighborhood Map </title>
+     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+     <script type="text/javascript" src="knockout.js"></script>
+     <link rel="stylesheet" type="text/css" href="styles.css">
+   </head>
+
+   <body>
+     <div class="options-box">
+        <h1>Find Your Place in  Toronto</h1>
+        <select id="marker" data-bind="foreach: optionsValue">
+          <option id="location" data-bind="text: $data"></option>>
+        </select>
+        <ul class="listView" data-bind="foreach: locations">
+          <li class="listItem" data-bind="text: $data, click: $parent.onSelectListItem"></li>
+        </ul>
+        <p>
+          Additional location information provided by Foursquare
+     </div>
+     <div id="map">    
+     </div>
+     <script>
+       var map;
+       var markers = [];
+       // the five points of interest
+       var locations = [
+         {title: 'Gyubee', location: {lat: 43.6669596, lng: -79.4008724}, venueID: '59f7bad335811b13a241e498'},
+         {title: 'Bahen Center for Information Technology', location: {lat: 43.6596426, lng: -79.3976676}, venueID: '4ad7baa8f964a5202b0e21e3'},
+         {title: 'Trinity College', location: {lat: 43.6651403, lng: -79.3955420}, venueID: '4ae5c2d9f964a520d6a121e3'},
+         {title: 'Toronto CF Eaton Center', location: {lat: 43.6544382, lng: -79.3806994}, venueID: '4ad77a12f964a520260b21e3'},
+         {title: 'Royal Ontario Museum', location: {lat: 43.6677097, lng: -79.3947771}, venueID: '4ad4c05ef964a520d9f620e3'}
+       ];
+
+       var viewModel = function() {
+         var self = this
+
+         self.optionsValue = ko.observableArray(['-----', 'Gyubee', 'Bahen Center for Information Technology', 'Trinity College', 'Toronto CF Eaton Center', 'Royal Ontario Museum'])
+         self.locations = ko.observableArray(['Gyubee', 'Bahen Center for Information Technology', 'Trinity College', 'Toronto CF Eaton Center', 'Royal Ontario Museum'])
+
+         self.selectLocation = function (location) {
+         	 self.locations.removeAll();
+         	 self.locations.push(location);
+         }
+
+         self.addLocation = function () {
+           self.locations(['Gyubee', 'Bahen Center for Information Technology', 'Trinity College', 'Toronto CF Eaton Center', 'Royal Ontario Museum']);
+         }
+
+         self.onSelectListItem = function (location) {
+           for (var i = 0; i < markers.length; i++) {
+             if(markers[i].title == location) {
+                markers[i].setAnimation(google.maps.Animation.BOUNCE);
+                for(var j = 0; j < locations.length; j++) {
+                    if(locations[i].title == location) {
+                       var venueID = locations[i].venueID;
+                       populateInfoWindow(markers[i], new google.maps.InfoWindow(), venueID);
+                       break;
+                    }
+                }              
+                break;
+             }
+           }
+         }
+       };
+ 
+       window.vm = new viewModel();
+       ko.applyBindings(vm);
+
+       
+       $("#marker").change(function() {
+         var name = this.value;
+         if(name != '-----') {
+            window.vm.selectLocation(name); 
+            for (var i = 0; i < markers.length; i++) {
+               if(markers[i].title != name) {
+                  markers[i].setMap(null);
+               } else {
+                 if(markers[i].getMap() == null) {
+                   markers[i].setMap(map);
+                 }
+               }
+            }  
+         } else {
+           window.vm.addLocation();
+           for (var i = 0; i < markers.length; i++) {
+                markers[i].setMap(map);
+           }  
+         }  
+       });  
+
+       
+       function initMap() {
+         // Constructor creates a new map - only center and zoom are required.
+         map = new google.maps.Map(document.getElementById('map'), {
+           center: {"lat" : 43.6657289, "lng" : -79.3978577},
+           zoom: 13
+         });
+
+         // Style the markers a bit.
+         var defaultIcon = makeMarkerIcon('0091ff');
+         var highlightedIcon = makeMarkerIcon('FFFF24');
+
+         var largeInfowindow = new google.maps.InfoWindow();
+
+         // Use the location array to create an array of markers on initialize.
+         for (var i = 0; i < locations.length; i++) {
+           var position = locations[i].location;
+           var title = locations[i].title;
+           var venueID = locations[i].venueID;
+           // console.log(i + 'th location, venueID: ' + venueID)
+
+           var marker = new google.maps.Marker({
+             position: position,
+             title: title,
+             map: map,
+             animation: google.maps.Animation.DROP,
+             icon: defaultIcon,
+             id: i
+           });
+           markers.push(marker);
+
+           marker.addListener('click', function() {
+           	 if (this.getAnimation() !== null) {
+                 this.setAnimation(null);
+             } else {
+               var venue;
+               for (var i = 0; i < markers.length; i++) {
+                    if(locations[i].title == this.title) {
+                       venue = locations[i].venueID;
+                    }
+               }
+               // console.log(venue)  
+               this.setAnimation(google.maps.Animation.BOUNCE);
+               populateInfoWindow(this, largeInfowindow, venue);
+             }
+           });
+           marker.addListener('mouseover', function() {
+             this.setIcon(highlightedIcon);
+           });
+           marker.addListener('mouseout', function() {
+             this.setIcon(defaultIcon);
+           });
+
+         }
+       }
+
+       function populateInfoWindow(marker, infowindow, venueID) {
+         if (infowindow.marker != marker) {
+           infowindow.marker = marker;
+           infowindow.addListener('closeclick', function() {
+             infowindow.marker = null;
+           });
+
+           $.ajax({
+               type: "GET",
+               url: "https://api.foursquare.com/v2/venues/" + venueID + "/tips?" + "client_id=E03T3EESMX0M1H2I5IUDQRM2YCCGHOWOFYNEBGE12L2DRJ45&client_secret=WF2TFSPDYOJNJ35UBPCFQDEYG0DU5WPLP2ACJNXDUAUYDLZS&v=20180526",
+               success: function(result) {
+                  // console.log(marker.title)
+                  // console.log(result)
+                  var response = result["response"]["tips"]["items"];
+                  var content_string = '<div>Reviews';
+                  var i;
+                  for (i = 0; i < response.length; i++) {
+                      content_string += '<p>' + response[i]["text"] + "<br>" + '</p>';
+                  }
+                  content_string += '</div>';
+                  // console.log(venueID)
+                  infowindow.setContent('<div>' + marker.title + '</br>' + content_string + '</div>')                  
+               }
+           }).fail(function () {
+              infowindow.setContent('<div>' + marker.title + '</br>' + 'No additional informtion found' + '</div>')   
+           });
+
+           infowindow.open(map, marker);
+         }
+       }
+
+       function makeMarkerIcon(markerColor) {
+        var markerImage = new google.maps.MarkerImage(
+          'http://chart.googleapis.com/chart?chst=d_map_spin&chld=1.15|0|'+ markerColor +
+          '|40|_|%E2%80%A2',
+          new google.maps.Size(21, 34),
+          new google.maps.Point(0, 0),
+          new google.maps.Point(10, 34),
+          new google.maps.Size(21,34));
+        return markerImage;
+      }
+     </script>
+
+     <script async defer
+     src="https://maps.googleapis.com/maps/api/js?v=3&key=AIzaSyC3vN8CWzD7hb3RYrpXQP9rNhd7ciSwciY&callback=initMap">
+    </script>
+   </body>
+</html>
