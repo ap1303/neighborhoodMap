@@ -5,12 +5,13 @@
      <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
      <script type="text/javascript" src="knockout.js"></script>
      <link rel="stylesheet" type="text/css" href="styles.css">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
    </head>
 
    <body>
      <div class="options-box">
         <h1>Find Your Place in  Toronto</h1>
-        <select id="marker" data-bind="foreach: optionsValue">
+        <select id="marker" data-bind="options: optionsValue, value: selectedLocation">
           <option id="location" data-bind="text: $data"></option>>
         </select>
         <ul class="listView" data-bind="foreach: locations">
@@ -18,6 +19,7 @@
         </ul>
         <p>
           Additional location information provided by Foursquare
+        </p>
      </div>
      <div id="map">    
      </div>
@@ -38,6 +40,27 @@
 
          self.optionsValue = ko.observableArray(['-----', 'Gyubee', 'Bahen Center for Information Technology', 'Trinity College', 'Toronto CF Eaton Center', 'Royal Ontario Museum'])
          self.locations = ko.observableArray(['Gyubee', 'Bahen Center for Information Technology', 'Trinity College', 'Toronto CF Eaton Center', 'Royal Ontario Museum'])
+         self.selectedLocation = ko.observable()
+
+         self.selectedLocation.subscribe(function(newLocation) {
+            if(newLocation != '-----') {
+               self.selectLocation(newLocation); 
+               for (var i = 0; i < markers.length; i++) {
+                    if(markers[i].title != newLocation) {
+                       markers[i].setMap(null);
+                    } else {
+                      if(markers[i].getMap() == null) {
+                         markers[i].setMap(map);
+                      }
+                    }
+                }  
+            } else {
+              self.addLocation(newLocation);
+              for (var i = 0; i < markers.length; i++) {
+                   markers[i].setMap(map);
+              }  
+            }  
+         }, self)
 
          self.selectLocation = function (location) {
          	 self.locations.removeAll();
@@ -66,30 +89,7 @@
        };
  
        window.vm = new viewModel();
-       ko.applyBindings(vm);
-
-       
-       $("#marker").change(function() {
-         var name = this.value;
-         if(name != '-----') {
-            window.vm.selectLocation(name); 
-            for (var i = 0; i < markers.length; i++) {
-               if(markers[i].title != name) {
-                  markers[i].setMap(null);
-               } else {
-                 if(markers[i].getMap() == null) {
-                   markers[i].setMap(map);
-                 }
-               }
-            }  
-         } else {
-           window.vm.addLocation();
-           for (var i = 0; i < markers.length; i++) {
-                markers[i].setMap(map);
-           }  
-         }  
-       });  
-
+       ko.applyBindings(vm); 
        
        function initMap() {
          // Constructor creates a new map - only center and zoom are required.
@@ -187,10 +187,15 @@
           new google.maps.Size(21,34));
         return markerImage;
       }
+
+      function onMapFailure() {
+        alert("Map failed to load.")
+      }
      </script>
 
      <script async defer
-     src="https://maps.googleapis.com/maps/api/js?v=3&key=AIzaSyC3vN8CWzD7hb3RYrpXQP9rNhd7ciSwciY&callback=initMap">
+     src="https://maps.googleapis.com/maps/api/js?v=3&key=AIzaSyC3vN8CWzD7hb3RYrpXQP9rNhd7ciSwciY&callback=initMap"
+     onerror="onMapFailure()">
     </script>
    </body>
 </html>
